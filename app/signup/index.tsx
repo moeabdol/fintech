@@ -1,8 +1,10 @@
 import Colors from '@/constants/Colors';
 import defaultStyles from '@/constants/Styles';
-import { Link } from 'expo-router';
+import { isClerkAPIResponseError, useSignUp } from '@clerk/clerk-expo';
+import { Link, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
+	Alert,
 	KeyboardAvoidingView,
 	Platform,
 	Text,
@@ -17,8 +19,27 @@ const keyaboardVerticalOffset = Platform.OS === 'ios' ? 90 : 0;
 function Page() {
 	const [countryCode, setCountryCode] = useState('+49');
 	const [mobileNumber, setMobileNumber] = useState<string>();
+	const router = useRouter();
+	const { signUp } = useSignUp();
 
-	const signup = async () => {};
+	const onSignup = async () => {
+		const phoneNumber = `${countryCode}${mobileNumber}`;
+
+		try {
+			await signUp!.create({
+				phoneNumber,
+			});
+			await signUp!.preparePhoneNumberVerification();
+			router.push({
+				pathname: 'verify/[mobile]',
+				params: { mobile: phoneNumber },
+			});
+		} catch (error) {
+			if (isClerkAPIResponseError(error)) {
+				Alert.alert(error.errors[0].message);
+			}
+		}
+	};
 
 	return (
 		<KeyboardAvoidingView
@@ -68,7 +89,7 @@ function Page() {
 							: styles.disabled,
 						{ marginBottom: 20 },
 					]}
-					onPress={signup}
+					onPress={onSignup}
 				>
 					<Text style={defaultStyles.buttonText}>Sign Up</Text>
 				</TouchableOpacity>

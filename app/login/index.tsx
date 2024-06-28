@@ -1,8 +1,11 @@
 import Colors from '@/constants/Colors';
 import defaultStyles from '@/constants/Styles';
+import { isClerkAPIResponseError, useSignIn } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
+	Alert,
 	KeyboardAvoidingView,
 	Platform,
 	Text,
@@ -24,8 +27,38 @@ const keyaboardVerticalOffset = Platform.OS === 'ios' ? 90 : 0;
 function Page() {
 	const [countryCode, setCountryCode] = useState('+49');
 	const [mobileNumber, setMobileNumber] = useState<string>();
+	const router = useRouter();
+	const { signIn } = useSignIn();
 
-	const login = async (type: LoginType) => {};
+	const login = async (type: LoginType) => {
+		if (type === LoginType.Phone) {
+			const phoneNumber = `${countryCode}${mobileNumber}`;
+
+			try {
+				const { supportedFirstFactors } = await signIn!.create({
+					identifier: phoneNumber,
+				});
+				const firstPhoneFactor: any = supportedFirstFactors.find(factor => {
+					return factor.strategy === 'phone_code';
+				});
+				const { phoneNumberId } = firstPhoneFactor;
+				await signIn!.prepareFirstFactor({
+					strategy: 'phone_code',
+					phoneNumberId,
+				});
+				router.push({
+					pathname: '/verify/[mobile]',
+					params: { mobile: phoneNumber, signin: 'true' },
+				});
+			} catch (error) {
+				if (isClerkAPIResponseError(error)) {
+					if (error.errors[0].code === 'form_identifier_not_found') {
+						Alert.alert('Error', error.errors[0].message);
+					}
+				}
+			}
+		}
+	};
 
 	return (
 		<KeyboardAvoidingView
